@@ -12,6 +12,7 @@ class robot_arm_2dof:
         self.m = m  # link mass
         self.q = np.zeros([2])  # joint position
         self.q2 = np.zeros([2])  # joint position
+        self.q_init = np.array([0, 0])
 
     # forward kinematics
     def FK(self, q):
@@ -56,7 +57,7 @@ class robot_arm_2dof:
         return J
 
     # inverse kinematics
-    def IK(self, p):
+    def IK_Analytical(self, p):
         q = np.zeros([2])
         r = np.sqrt(p[0] ** 2 + p[1] ** 2)
         q[1] = np.pi - math.acos((self.l[0] ** 2 + self.l[1] ** 2 - r ** 2) / (2 * self.l[0] * self.l[1]))
@@ -64,20 +65,27 @@ class robot_arm_2dof:
 
         return q
 
+    # inverse kinematics
+    def IK_Numerical(self, p):
+        q_sim = []
+        error = p - self.FK(self.q)
+        while abs(np.linalg.norm(error)) > 0.0001:
+            J = self.Jacobian()
+            # print(np.linalg.inv(J))
+            self.q = self.q + np.linalg.inv(J).dot(error)
+            error = p - self.FK(self.q)
+            q_sim.append(self.q)
+        return self.q, q_sim
+
     # state change
-    def state(self, q):
+    def Init_state(self, q):
         self.q = q
-
-
-def DegtoRad(degree):
-    degree[0] = degree[0] / 180 * np.pi
-    degree[1] = degree[1] / 180 * np.pi
 
 
 '''SIMULATION'''
 
 # SIMULATION PARAMETERS
-dt = 0.01  # intergration step timedt = 0.01 # integration step time
+dt = 1  # intergration step timedt = 0.01 # integration step time
 dts = dt * 1  # desired simulation step time (NOTE: it may not be achieved)
 T = 3  # total simulation time
 
@@ -89,8 +97,7 @@ l2 = 0.3  # link 2 length
 l = [l1, l2]  # link length
 m = [1.0, 1.0]  # link mass
 ag = 9.81  # acceleration of gravity
-q = [0, 90]
-DegtoRad(q)
+
 # REFERENCE TRAJETORY
 ts = T / dt  # trajectory size
 x = 1
@@ -99,8 +106,15 @@ y = 1
 # SIMULATOR
 # initialise robot model class
 model = robot_arm_2dof(l, m)
-model.state(q)
-pr1 = model.FK(q)  # reference endpoint trajectory
+q_init = [0, np.pi / 3]
+model.Init_state(q_init)
+p_ref = [0.2, 0.4]  # reference endpoint trajectory
+q_IK_numerical, q_sim = model.IK_Numerical(p_ref)
+print("iteration for", len(q_sim))
+q_IK_analytical = model.IK_Analytical(p_ref)
+pr_numerical = model.FK(q_IK_numerical)
+q_numerical_sim = []
+# print(q_sim)
 
 # initialise real-time plot with pygame
 pygame.init()  # start pygame
@@ -133,7 +147,8 @@ while run:
 
 # MAIN LOOP
 run = True
-while run:
+
+for i in range(len(q_sim)):
     for event in pygame.event.get():  # interrupt function
         if event.type == pygame.QUIT:  # force quit with closing the window
             run = False
@@ -142,35 +157,35 @@ while run:
                 run = False
 
     # update individual link position
-    x1 = l1 * np.cos(q[0])
-    y1 = l1 * np.sin(q[0])
-    x2 = x1 + l2 * np.cos(q[0] + q[1])
-    y2 = y1 + l2 * np.sin(q[0] + q[1])
-
+    x1 = l1 * np.cos(q_sim[i][0])
+    y1 = l1 * np.sin(q_sim[i][0])
+    x2 = x1 + l2 * np.cos(q_sim[i][0] + q_sim[i][1])
+    y2 = y1 + l2 * np.sin(q_sim[i][0] + q_sim[i][1])
     # real-time plotting
     window.fill((255, 255, 255))  # clear window
-    pygame.draw.circle(window, (0, 255, 0), (int(window_scale * pr1[0]) + xc, int(-window_scale * pr1[1]) + yc),
+    pygame.draw.circle(window, (0, 255, 0), (int(window_scale * p_ref[0]) + xc, int(-window_scale * p_ref[1]) + yc),
                        10)  # draw reference position
+
     pygame.draw.lines(window, (0, 0, 255), False, [(window_scale * x0 + xc, -window_scale * y0 + yc),
                                                    (window_scale * x1 + xc, -window_scale * y1 + yc),
-                                                   (window_scale * x2 + xc, -window_scale * y2 + yc)], 3)  # draw links
+                                                   (window_scale * x2 + xc, -window_scale * y2 + yc)], 3)  # draw
+    # links
     pygame.draw.circle(window, (0, 0, 0), (int(window_scale * x0) + xc, int(-window_scale * y0) + yc),
                        7)  # draw shoulder / base
-    pygame.draw.circle(window, (0, 0, 0), (int(window_scale * x1) + xc, int(-window_scale * y1) + yc), 7)  # draw elbow
+    pygame.draw.circle(window, (0, 0, 0), (int(window_scale * x1) + xc, int(-window_scale * y1) + yc),
+                       7)  # draw elbow
     pygame.draw.circle(window, (255, 0, 0), (int(window_scale * x2) + xc, int(-window_scale * y2) + yc),
                        5)  # draw hand / endpoint
-
     text = font.render("FPS = " + str(round(clock.get_fps())), True, (0, 0, 0), (255, 255, 255))
     window.blit(text, textRect)
-
     pygame.display.flip()  # update display
+    clock.tick(FPS)  # try to keep it real time with the desired step time
 
-    # try to keep it real time with the desired step time
-    clock.tick(FPS)
-
-    if not run:
-        break
-
-pygame.quit()  # stop pygame
+while run:
+    for event in pygame.event.get():  # interrupt function
+        if event.type == pygame.KEYUP:
+            if event.key == ord('q'):  # force quit with q button
+                run = False
+    pygame.display.flip()
 
 '''ANALYSIS'''
