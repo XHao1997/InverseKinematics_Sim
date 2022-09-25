@@ -1,6 +1,4 @@
-1. Download the repository from 
-
-   [link](https://github.com/XHao1997/InverseKinematics_Sim/archive/refs/heads/master.zip)
+1. Download the repository from [link](https://github.com/XHao1997/InverseKinematics_Sim/archive/refs/heads/master.zip)
 
 2. Extract the folder on the Desktop (or in the preferred directory)
 
