@@ -1,6 +1,6 @@
 1. Download the repository from 
 
-   [link]: https://github.com/XHao1997/InverseKinematics_Sim/archive/refs/heads/master.zip
+   [link]: https://github.com/XHao1997/InverseKinematics_Sim/archive/refs/heads/master.zip	"link"
 
 2. Extract the folder on the Desktop (or in the preferred directory)
 
@@ -24,11 +24,7 @@
 
 12. You are ready to use jupyter. 
 
-13. 
-
 14. Every time that we want to start to work again we have to  
-
-15. 
 
 16. Open Anaconda Prompt (Anaconda3) in Start 
 
